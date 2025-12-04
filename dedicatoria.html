@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dedicatória</title>
+<link href="https://fonts.googleapis.com/css2?family=Ink+Free&display=swap" rel="stylesheet">
+</style>
+<style>
+    :root{--bg:#000; --yellow:#ffff00; --muted:#666}
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:#fff;font-family:'Ink Free',Arial,sans-serif}
+    #backgroundImage{position:fixed;inset:0;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:1;z-index:1}
+    #lyrics{position:fixed;top:0;left:50%;transform:translateX(-50%);width:90%;max-width:900px;height:100vh;overflow-y:auto;padding:40px 30px;text-align:center;font-size:1.05rem;line-height:2rem;color:var(--yellow);margin:0;box-sizing:border-box;background:rgba(0,0,0,0.8);z-index:2;opacity:1;scrollbar-width:thin;scrollbar-color:var(--yellow) #000}
+    #lyrics::-webkit-scrollbar{width:8px}
+    #lyrics::-webkit-scrollbar-track{background:#000}
+    #lyrics::-webkit-scrollbar-thumb{background:var(--yellow);border-radius:10px;box-shadow:0 0 10px var(--yellow)}
+    .neon{animation:neonGlow 4s ease-in-out infinite;will-change:text-shadow}
+    @keyframes neonGlow{0%{text-shadow:0 0 4px rgba(0,0,0,0.6),0 0 8px rgba(255,255,0,0.28)}50%{text-shadow:0 0 6px rgba(0,0,0,0.6),0 0 12px rgba(255,255,0,0.45)}100%{text-shadow:0 0 4px rgba(0,0,0,0.6),0 0 8px rgba(255,255,0,0.28)}}
+    .lyric-line{cursor:pointer;transition:all .25s ease;position:relative}
+    .lyric-line:hover{text-shadow:0 0 2px #000,0 0 4px #000,0 0 15px #ff00ff;filter:brightness(1.08)}
+    .lyric-text{display:inline-block}
+    #lyrics.visible{opacity:1;visibility:visible;pointer-events:auto}
+    #lyrics.hidden-bg{background:rgba(0,0,0,0);opacity:0;pointer-events:auto;text-shadow:none}
+    #backButton{position:fixed;bottom:20px;right:20px;padding:10px 16px;border:2px solid #fff;background:none;color:#fff;font-family:'Ink Free',sans-serif;font-size:1.05rem;cursor:pointer;z-index:100;opacity:1;transition:opacity .3s ease,transform .15s ease;text-shadow:0 0 5px #fff;box-shadow:0 0 10px #fff}
+    #backButton:hover{background:rgba(255,255,255,0.08)}
+
+</style>
+</head>
+<body>
+
+<div id="backgroundImage"></div>
+
+<div id="lyrics" class="neon" aria-live="polite">
+    <div style="margin-bottom:20px;">
+        <strong id="songTitle">Dedicatória</strong>
+    </div>
+    <div id="lyricsContainer" style="white-space: pre-wrap; font-family: inherit; font-size:0.95rem; line-height:1.6rem; cursor:pointer;"></div>
+</div>
+
+<button id="backButton">Back</button>
+
+<script>
+    // Ajuste do background: tenta carregar 'eyeslindos' com extensões comuns
+    (function(){
+        const bg = document.getElementById('backgroundImage');
+        const candidates = [
+            './eyeslindos.jpg',
+            './eyeslindos.png',
+            './eyeslindos.webp',
+            './09aed15363efc67c17ab7baf8efa4a13.jpg' // fallback original
+        ];
+
+        let idx = 0;
+        function tryLoad() {
+            if (idx >= candidates.length) return;
+            const url = candidates[idx];
+            const img = new Image();
+            img.onload = function() {
+                bg.style.backgroundImage = `url('${url}')`;
+            };
+            img.onerror = function() {
+                idx++;
+                tryLoad();
+            };
+            // Start loading
+            img.src = url;
+        }
+
+        tryLoad();
+    })();
+
+    // Dados da dedicatória em linhas (como letras de música)
+    const dedicatoryLines = [
+        "Para você,",
+        "que me ensinou o que é o amor,",
+        "o sentimento de viver a vida intensamente",
+        "e sem regressos.",
+        "",
+        "Que me ensinou a caminhar, correr",
+        "e buscar meu sonho.",
+        "",
+        "",
+        "A você,",
+        "que foi farol nas minhas noites mais escuras",
+        "e abrigo nos dias em que a vida pesou demais.",
+        "",
+        "Cada palavra destas páginas",
+        "carrega um pouco do que aprendi",
+        "observando sua força, sua coragem",
+        "e a delicadeza com que enfrenta o mundo.",
+        "",
+        "",
+        "Se este site existe,",
+        "é porque um dia você acreditou em mim",
+        "antes mesmo que eu acreditasse.",
+        "",
+        "Que estas linhas sejam",
+        "meu eterno agradecimento,",
+        "meu gesto silencioso de gratidão,",
+        "",
+        "e a prova de que o amor",
+        "— o seu amor —",
+        "deixou raízes fundas em mim."
+    ];
+
+    function renderDedication(lines) {
+        const container = document.getElementById('lyricsContainer');
+        container.innerHTML = '';
+        lines.forEach(line => {
+            if (line === '') {
+                const emptyLine = document.createElement('div');
+                emptyLine.style.height = '0.8rem';
+                container.appendChild(emptyLine);
+            } else {
+                const div = document.createElement('div');
+                div.className = 'lyric-line';
+                const span = document.createElement('span');
+                span.className = 'lyric-text';
+                span.textContent = line;
+                div.appendChild(span);
+                container.appendChild(div);
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Renderiza dedicatória ao carregar
+        renderDedication(dedicatoryLines);
+        
+        // Botão back
+        const backButton = document.getElementById('backButton');
+        backButton.addEventListener('click', () => {
+            window.location.href = 'index - Copia.html';
+        });
+
+        // Mouseleave: oculta letras ao sair do mouse (igual às outras abas)
+        const lyrics = document.getElementById('lyrics');
+        
+        function updateLyricsHoverState(clientX, clientY) {
+            const rect = lyrics.getBoundingClientRect();
+            const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+            if (inside) {
+                lyrics.classList.add('visible');
+                lyrics.classList.remove('hidden-bg');
+            } else {
+                lyrics.classList.remove('visible');
+                lyrics.classList.add('hidden-bg');
+            }
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            updateLyricsHoverState(e.clientX, e.clientY);
+        });
+
+        document.addEventListener('mouseout', (e) => {
+            if (!e.relatedTarget) {
+                lyrics.classList.remove('visible');
+                lyrics.classList.add('hidden-bg');
+            }
+        });
+    });
+</script>
+</body>
+</html>

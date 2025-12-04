@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>For U — Trying Not To Love You</title>
+<link href="https://fonts.googleapis.com/css2?family=Ink+Free&display=swap" rel="stylesheet">
+<style>
+    :root { --yellow: #ffff00; --bg: #000; --muted: #666; }
+    html,body { height:100%; margin:0; padding:0; background:var(--bg); color:#fff; font-family: 'Ink Free', Arial, sans-serif; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+    /* Home */
+    #homePage { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; z-index:10; background: #000; }
+    /* video preview inside home (looping, muted) */
+    #homeVideo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0.5; filter: brightness(1.06) saturate(1.08); pointer-events:none; z-index:0; }
+    /* ensure home content sits above the video preview */
+    #homePage .category, #homePage > .tabs-container { position:relative; z-index:2; }
+    .categories-row { display:flex; gap:12px; align-items:center; justify-content:center; }
+    .category { cursor:pointer; font-size:2rem; color:#fff; padding:20px 40px; border:2px solid #fff; transition:all .25s ease; text-align:center; }
+    .category:hover { background: rgba(255,255,255,0.06); box-shadow:0 0 20px rgba(255,255,255,0.08); }
+    .tabs-container { display:none; margin-top:20px; flex-direction:column; gap:10px; }
+    .tabs-container.active { display:flex; }
+    .tab { cursor:pointer; font-size:1.25rem; color:#ccc; padding:12px 20px; border:1px solid var(--muted); background:rgba(0,0,0,0.45); transition:all .2s ease; }
+    .tab:hover { color:#fff; border-color:#fff; background:rgba(255,255,255,0.04); }
+    .tab.active { color: var(--yellow); border:2px solid var(--yellow); background: rgba(255,255,0,0.06); }
+
+    /* Background image */
+    #backgroundImage { position:fixed; inset:0; background-size:contain; background-position:center; background-repeat:no-repeat; opacity:0; z-index:1; transition:opacity .5s ease; }
+    /* overlay used to crossfade between background images */
+    #backgroundImageFade { position:fixed; inset:0; background-size:contain; background-position:center; background-repeat:no-repeat; opacity:0; z-index:1; transition:opacity .5s ease; pointer-events:none; }
+
+    /* Lyrics container */
+    /* Lyrics container: only transition opacity to avoid flicker */
+    #lyrics { position:fixed; top:0; left:50%; transform:translateX(-50%); width:90%; max-width:900px; height:100vh; overflow-y:auto; padding:40px 30px; text-align:center; font-size:1.05rem; line-height:2rem; color:var(--yellow); margin:0; box-sizing:border-box; background:rgba(0,0,0,0.8); z-index:2; opacity:0; transition: opacity .25s ease; scrollbar-width:thin; scrollbar-color: var(--yellow) #000; -webkit-overflow-scrolling:touch; pointer-events:auto; }
+    /* Visible state controlled by class to avoid inline-style conflicts */
+    #lyrics.visible { opacity:1; visibility:visible; pointer-events:auto; }
+    /* When hidden we rely on lack of .visible; keep a legacy selector for compatibility */
+    #lyrics.hidden-bg { background: rgba(0,0,0,0); opacity:0; pointer-events:auto; text-shadow:none; }
+    /* Subtle neon glow: slow, low-intensity to avoid flicker */
+    .neon { animation: neonGlow 4s ease-in-out infinite; will-change: text-shadow; }
+    @keyframes neonGlow {
+        0% {
+            text-shadow: 0 0 4px rgba(0,0,0,0.6), 0 0 8px rgba(255,255,0,0.28);
+        }
+        50% {
+            text-shadow: 0 0 6px rgba(0,0,0,0.6), 0 0 12px rgba(255,255,0,0.45);
+        }
+        100% {
+            text-shadow: 0 0 4px rgba(0,0,0,0.6), 0 0 8px rgba(255,255,0,0.28);
+        }
+    }
+
+    /* lyric lines */
+    .lyric-line { cursor:pointer; transition:all .25s ease; position:relative; }
+    .lyric-line:hover { text-shadow: 0 0 2px #000,0 0 4px #000,0 0 15px #ff00ff; filter:brightness(1.08); }
+
+    /* Remove automatic per-line fade-in to avoid extra animations while hiding/showing on hover */
+    .lyric-text { display:inline-block; }
+    .lyric-text.fade-out { animation: fadeOutLanguage .45s ease-in-out; }
+    @keyframes fadeInLanguage { 0% { opacity:0; transform: translateY(8px) rotateX(90deg);} 100% { opacity:1; transform: translateY(0) rotateX(0);} }
+    @keyframes fadeOutLanguage { 0% { opacity:1; transform: translateY(0) rotateX(0);} 100% { opacity:0; transform: translateY(-8px) rotateX(-90deg);} }
+
+    /* Scrollbar (webkit) */
+    #lyrics::-webkit-scrollbar { width:8px; }
+    #lyrics::-webkit-scrollbar-track { background:#000; }
+    #lyrics::-webkit-scrollbar-thumb { background:var(--yellow); border-radius:10px; box-shadow:0 0 10px var(--yellow); }
+
+    /* Buttons */
+    #playButton, #backButton { position:fixed; bottom:20px; padding:10px 16px; border:2px solid #fff; background:none; color:#fff; font-family: 'Ink Free', sans-serif; font-size:1.05rem; cursor:pointer; z-index:100; opacity:0; transition: opacity .3s ease, transform .15s ease; text-shadow:0 0 5px #fff; box-shadow:0 0 10px #fff; }
+    #playButton { left:20px; }
+    #backButton { right:20px; display:none; }
+    #backButton.show { display:block; opacity:1; }
+
+    #playButton:hover, #backButton:hover { background: rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+
+<div id="homePage">
+    <video id="homeVideo" src="265815.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
+    <div class="categories-row">
+        <div class="category" id="musicCategory">Músicas</div>
+        <div class="category" id="dedicationCategory">Dedicatória</div>
+    </div>
+    <div class="tabs-container" id="tabsContainer">
+        <div class="tab" data-song="trying-not-to-love-you">Trying not to love you</div>
+        <div class="tab" data-song="those-eyes">Those Eyes</div>
+        <div class="tab" data-song="the-first-time">The First Time</div>
+    </div>
+    <!-- Dedicatória agora abre em página própria -->
+</div>
+
+<div id="backgroundImage"></div>
+<div id="backgroundImageFade" aria-hidden="true"></div>
+
+<div id="lyrics" class="neon" aria-live="polite">
+    <div style="margin-bottom:20px;">
+        <strong id="songTitle">Trying Not To Love You — Nickelback</strong>
+    </div>
+    <div id="lyricsContainer" style="white-space: pre-wrap; font-family: inherit; font-size:0.95rem; line-height:1.6rem; cursor:pointer;"></div>
+</div>
+
+<button id="playButton">Play</button>
+<button id="backButton">Back</button>
+<input type="file" id="filePicker" accept="audio/*" style="display:none">
+<audio id="song" src="musica.mp3"></audio>
+
+<script>
+    // ---------- Dados das letras ----------
+    const lyricsDataMap = {
+        'trying-not-to-love-you': [
+        { en: "You call to me, and I fall at your feet", pt: "Você me chama, e eu caio aos seus pés" },
+        { en: "How could anyone ask for more?", pt: "Como alguém poderia pedir mais?" },
+        { en: "(How could anyone ask for more?)", pt: "(Como alguém poderia pedir mais?)" },
+        { en: "And our time apart, like knives in my heart", pt: "E o nosso tempo separados, como facas no meu coração" },
+        { en: "How could anyone ask for more?", pt: "Como alguém poderia pedir mais?" },
+        { en: "(How could anyone ask for more?)", pt: "(Como alguém poderia pedir mais?)" },
+        { en: "", pt: "" },
+        { en: "But if there's a pill to help me forget", pt: "Mas se existir um remédio pra me ajudar a esquecer" },
+        { en: "God knows I haven't found it yet", pt: "Deus sabe que eu ainda não encontrei" },
+        { en: "But I'm dying to", pt: "Mas eu estou morrendo de vontade" },
+        { en: "God, I'm trying to", pt: "Deus, eu estou tentando" },
+        { en: "", pt: "" },
+        { en: "'Cause trying not to love you only goes so far", pt: "Porque tentar não te amar só vai até certo ponto" },
+        { en: "Trying not to need you is tearing me apart", pt: "Tentar não precisar de você está me destruindo" },
+        { en: "Can't see the silver lining from down here on the floor", pt: "Não consigo ver o lado bom daqui do chão" },
+        { en: "And I just keep on trying but I don't know what for", pt: "E eu continuo tentando, mas nem sei pra quê" },
+        { en: "'Cause trying not to love you", pt: "Porque tentar não te amar" },
+        { en: "Only makes me love you more", pt: "Só me faz te amar mais" },
+        { en: "Only makes me love you more", pt: "Só me faz te amar mais" },
+        { en: "", pt: "" },
+        { en: "And this kind of pain only time takes away", pt: "E esse tipo de dor só o tempo leva embora" },
+        { en: "That's why it's harder to let you go", pt: "É por isso que é mais difícil te deixar ir" },
+        { en: "(That's why it's harder to let you go)", pt: "(É por isso que é mais difícil te deixar ir)" },
+        { en: "And nothing I can do without thinking of you", pt: "E não há nada que eu faça sem pensar em você" },
+        { en: "That's why it's harder to let you go", pt: "É por isso que é mais difícil te deixar ir" },
+        { en: "(That's why it's harder to let you go)", pt: "(É por isso que é mais difícil te deixar ir)" },
+        { en: "", pt: "" },
+        { en: "But if there's a pill to help me forget", pt: "Mas se existir um remédio pra me ajudar a esquecer" },
+        { en: "God knows I haven't found it yet", pt: "Deus sabe que eu ainda não encontrei" },
+        { en: "But I'm dying to", pt: "Mas eu estou morrendo de vontade" },
+        { en: "God, I'm trying to", pt: "Deus, eu estou tentando" },
+        { en: "", pt: "" },
+        { en: "'Cause trying not to love you only goes so far", pt: "Porque tentar não te amar só vai até certo ponto" },
+        { en: "Trying not to need you is tearing me apart", pt: "Tentar não precisar de você está me destruindo" },
+        { en: "Can't see the silver lining from down here on the floor", pt: "Não consigo ver o lado bom daqui do chão" },
+        { en: "And I just keep on trying but I don't know what for", pt: "E eu continuo tentando, mas nem sei pra quê" },
+        { en: "'Cause trying not to love you", pt: "Porque tentar não te amar" },
+        { en: "Only makes me love you more", pt: "Só me faz te amar mais" },
+        { en: "", pt: "" },
+        { en: "So I sit here divided, just talking to myself", pt: "Então eu fico aqui dividido, falando sozinho" },
+        { en: "Was it something that I did? Was there somebody else?", pt: "Foi algo que eu fiz? Havia outra pessoa?" },
+        { en: "When a voice from behind me that was fighting back tears", pt: "Quando uma voz atrás de mim, segurando o choro" },
+        { en: "Sat right down beside me and whispered right in my ear", pt: "Sentou bem ao meu lado e sussurrou no meu ouvido" },
+        { en: "Said I've been dying to tell you", pt: "Disse: eu estava morrendo de vontade de te dizer" },
+        { en: "", pt: "" },
+        { en: "That trying not to love you only went so far", pt: "Que tentar não te amar só foi até certo ponto" },
+        { en: "That trying not to need you was tearing me apart", pt: "Que tentar não precisar de você estava me destruindo" },
+        { en: "Now I see the silver lining from what we're fighting for", pt: "Agora eu vejo o lado bom do que estamos lutando por" },
+        { en: "And if we just keep on trying we could be much more", pt: "E se continuarmos tentando, podemos ser muito mais" },
+        { en: "", pt: "" },
+        { en: "'Cause trying not to love you, yeah", pt: "Porque tentar não te amar, é…" },
+        { en: "Oh, yeah, trying not to love you", pt: "Oh, tentar não te amar" },
+        { en: "Only makes me love you more", pt: "Só me faz te amar mais" },
+        { en: "Only makes me love you more", pt: "Só me faz te amar mais" }
+        ],
+        'those-eyes': [
+        { en: "When we're out in a crowd laughing loud and nobody knows why", pt: "Quando estamos no meio da multidão rindo alto e ninguém sabe por que" },
+        { en: "", pt: "" },
+        { en: "When we're lost at a club getting drunk and you give me that smile", pt: "Quando estamos perdidos em um clube ficando bêbado e você me dá esse sorriso" },
+        { en: "", pt: "" },
+        { en: "Going home in the back of a car and your hand touches mine", pt: "Indo para casa no banco de trás de um carro e sua mão toca a minha" },
+        { en: "", pt: "" },
+        { en: "When we're done making love and you look up and give me those eyes", pt: "Quando terminamos de fazer amor e você olha para cima e me dá esses olhos" },
+        { en: "", pt: "" },
+        { en: "", pt: "" },
+        { en: "'Cause all of the small things that you do", pt: "Porque todas as pequenas coisas que você faz" },
+        { en: "Are what remind me why I fell for you", pt: "São o que me lembram porque eu me apaixonei por você" },
+        { en: "And when we're apart and I'm missing you", pt: "E quando estamos separados e eu sinto sua falta" },
+        { en: "I close my eyes and all I see is you", pt: "Eu fecho meus olhos e tudo que vejo é você" },
+        { en: "And the small things you do", pt: "E as pequenas coisas que você faz" },
+        { en: "", pt: "" },
+        { en: "", pt: "" },
+        { en: "When you call me at night while you're out getting high with your friends", pt: "Quando você me liga à noite enquanto está ficando bêbada com seus amigos" },
+        { en: "Every hi, every bye, every I love you you've ever said", pt: "Todo oi, cada tchau, todo eu te amo que você já disse" },
+        { en: "", pt: "" },
+        { en: "", pt: "" },
+        { en: "'Cause all of the small things that you do", pt: "Porque todas as pequenas coisas que você faz" },
+        { en: "Are what remind me why I fell for you", pt: "São o que me lembram porque eu me apaixonei por você" },
+        { en: "And when we're apart and I'm missing you", pt: "E quando estamos separados e eu sinto sua falta" },
+        { en: "I close my eyes and all I see is you", pt: "Eu fecho meus olhos e tudo que vejo é você" },
+        { en: "And the small things you do", pt: "E as pequenas coisas que você faz" },
+        { en: "", pt: "" },
+        { en: "", pt: "" },
+        { en: "When we're done making love and you look up and give me those eyes", pt: "Quando terminamos de fazer amor e você olha para cima e me dá esses olhos" },
+        { en: "", pt: "" },
+        { en: "", pt: "" },
+        { en: "'Cause all of the small things that you do", pt: "Porque todas as pequenas coisas que você faz" },
+        { en: "Are what remind me why I fell for you", pt: "São o que me lembram porque eu me apaixonei por você" },
+        { en: "And when we're apart and I'm missing you", pt: "E quando estamos separados e eu sinto sua falta" },
+        { en: "I close my eyes and all I see is you", pt: "Eu fecho meus olhos e tudo que vejo é você" },
+        { en: "And the small things you do", pt: "E as pequenas coisas que você faz" }
+        ]
+    ,
+        'the-first-time': [
+        { en: "I thought my heart had felt it all", pt: "Achei que meu coração já tinha sentido de tudo" },
+        { en: "I swam for miles across the ocean", pt: "Nadei por milhas pelo oceano" },
+        { en: "Never met the shore", pt: "Nunca encontrei a costa" },
+        { en: "My eyes were closed, my highs were lows", pt: "Meus olhos estavam fechados, meus altos eram baixos" },
+        { en: "Just gettin' drunk on pills and potions", pt: "Só ficando bêbado com pílulas e poções" },
+        { en: "Cravin' something more", pt: "Desejando algo mais" },
+        { en: "Traveled the world but it got me nowhere", pt: "Viajei o mundo, mas isso não me levou a lugar nenhum" },
+        { en: "Nothing could ever compare", pt: "Nada poderia se comparar" },
+        { en: "A kiss, a touch, a song that made me cry", pt: "Um beijo, um toque, uma música que me fez chorar" },
+        { en: "And all the drugs I've done, they never got me higher", pt: "E todas as drogas que usei nunca me deixaram mais alto" },
+        { en: "Than the first time we met", pt: "Do que a primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time we met", pt: "Nada é como a primeira vez que nos conhecemos" },
+        { en: "I crashed my car, oh, baby, I was flyin'", pt: "Bati meu carro, oh, baby, eu estava voando" },
+        { en: "And I talked to God, He couldn't get me higher", pt: "E eu falei com Deus, Ele não conseguiu me levar mais alto" },
+        { en: "Than the first time we met", pt: "Do que a primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time, the first time we met", pt: "Nada é como a primeira vez, a primeira vez que nos conhecemos" },
+        { en: "That night, the stars aligned, Heaven dropped a line", pt: "Naquela noite, as estrelas se alinharam, o Céu enviou um sinal" },
+        { en: "Before you, I was just a flare in the sky", pt: "Antes de você, eu era apenas um clarão no céu" },
+        { en: "A kid too afraid to go to play in the light", pt: "Um garoto com medo demais para sair e brincar na luz" },
+        { en: "A colorless painter, a man with no sight", pt: "Um pintor sem cor, um homem sem visão" },
+        { en: "Before you, I was nothin', was nothin'", pt: "Antes de você, eu não era nada, não era nada" },
+        { en: "Had nothin', I only had", pt: "Não tinha nada, eu só tinha" },
+        { en: "A kiss, a touch, a song that made me cry", pt: "Um beijo, um toque, uma música que me fez chorar" },
+        { en: "And all the drugs I've done, they never got me higher", pt: "E todas as drogas que usei nunca me deixaram mais alto" },
+        { en: "Than the first time we met", pt: "Do que a primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time we met", pt: "Nada é como a primeira vez que nos conhecemos" },
+        { en: "I crashed my car, oh, baby, I was flyin'", pt: "Bati meu carro, oh, baby, eu estava voando" },
+        { en: "And I talked to God, He couldn't get me higher", pt: "E eu falei com Deus, Ele não conseguiu me levar mais alto" },
+        { en: "Than the first time we met", pt: "Do que a primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time, the first time we met", pt: "Nada é como a primeira vez, a primeira vez que nos conhecemos" },
+        { en: "You set the room on fire", pt: "Você incendiou o quarto" },
+        { en: "You take the angels higher", pt: "Você leva os anjos mais alto" },
+        { en: "I heard a thousand choirs", pt: "Eu ouvi mil corais" },
+        { en: "Oh, baby, you ain't seen nothing yet", pt: "Oh, baby, você ainda não viu nada" },
+        { en: "Traveled the world, it got me nowhere", pt: "Viajei o mundo, isso não me levou a lugar nenhum" },
+        { en: "Nothing could ever compare", pt: "Nada poderia se comparar" },
+        { en: "A kiss, a touch, a song that made me cry", pt: "Um beijo, um toque, uma música que me fez chorar" },
+        { en: "The drugs I've done, they never got me higher", pt: "As drogas que usei nunca me deixaram mais alto" },
+        { en: "Than the first time we met", pt: "Do que a primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time we met", pt: "Nada é como a primeira vez que nos conhecemos" },
+        { en: "And when I crashed my car, oh, baby, I was flyin'", pt: "E quando bati meu carro, oh, baby, eu estava voando" },
+        { en: "And I talked to God, He couldn't get me higher", pt: "E eu falei com Deus, Ele não conseguiu me levar mais alto" },
+        { en: "Than the first time we met", pt: "Do que a primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time, the first time we met", pt: "Nada é como a primeira vez, a primeira vez que nos conhecemos" },
+        { en: "The first time we met", pt: "A primeira vez que nos conhecemos" },
+        { en: "The first time we met", pt: "A primeira vez que nos conhecemos" },
+        { en: "There's nothing like the first time, the first time we met.", pt: "Nada é como a primeira vez, a primeira vez que nos conhecemos." }
+        ]
+    };
+    let lyricsData = lyricsDataMap['trying-not-to-love-you'];
+
+    // ---------- Estado ----------
+    let currentLanguage = 'en';
+    let currentTab = null;
+    let isPlaying = false;
+
+    // ---------- Funções ----------
+    function renderLyrics() {
+        const container = document.getElementById('lyricsContainer');
+        container.innerHTML = '';
+        if (!lyricsData || lyricsData.length === 0) {
+            container.innerHTML = '<p style="color: #ccc; font-style: italic;">Letras em breve...</p>';
+            return;
+        }
+        lyricsData.forEach((pair, index) => {
+            if (pair.en === '' && pair.pt === '') {
+                const emptyLine = document.createElement('div');
+                emptyLine.style.height = '0.8rem';
+                container.appendChild(emptyLine);
+            } else {
+                const line = document.createElement('div');
+                line.className = 'lyric-line';
+                line.dataset.index = index;
+                const textSpan = document.createElement('span');
+                textSpan.className = 'lyric-text';
+                textSpan.textContent = currentLanguage === 'en' ? pair.en : pair.pt;
+                line.appendChild(textSpan);
+                container.appendChild(line);
+            }
+        });
+    }
+
+    function toggleAllLanguages() {
+        const container = document.getElementById('lyricsContainer');
+        const allTextSpans = container.querySelectorAll('.lyric-text');
+        allTextSpans.forEach(span => span.classList.add('fade-out'));
+        setTimeout(() => {
+            currentLanguage = currentLanguage === 'en' ? 'pt' : 'en';
+            renderLyrics();
+            updateSongTitle();
+            // force reflow for animations
+            const newTextSpans = container.querySelectorAll('.lyric-text');
+            newTextSpans.forEach(span => { void span.offsetWidth; });
+        }, 250);
+    }
+
+    function updateSongTitle() {
+        const titleEl = document.getElementById('songTitle');
+        if (!titleEl) return;
+        
+        const titleMap = {
+            'trying-not-to-love-you': { en: 'Trying Not To Love You — Nickelback', pt: 'Trying Not To Love You — Nickelback' },
+            'those-eyes': { en: 'Those Eyes — New West', pt: 'Those Eyes — New West' }
+            , 'the-first-time': { en: 'Damiano David - The First Time', pt: 'Damiano David - The First Time' }
+        };
+        
+        const title = titleMap[currentTab] || titleMap['trying-not-to-love-you'];
+        titleEl.textContent = title[currentLanguage];
+    }
+
+    function setBackgroundImage(url) {
+        const bg = document.getElementById('backgroundImage');
+        const fade = document.getElementById('backgroundImageFade');
+        if (!bg || !fade) {
+            if (bg) bg.style.backgroundImage = `url('${url}')`;
+            return;
+        }
+        // quick check: if it's already the same image, set directly
+        if (bg.style.backgroundImage && bg.style.backgroundImage.indexOf(url) !== -1) {
+            bg.style.backgroundImage = `url('${url}')`;
+            return;
+        }
+        fade.style.backgroundImage = `url('${url}')`;
+        fade.style.opacity = '1';
+        setTimeout(() => {
+            bg.style.backgroundImage = `url('${url}')`;
+            fade.style.opacity = '0';
+        }, 500);
+    }
+
+    function showSong(songId) {
+        const homePage = document.getElementById('homePage');
+        const homeVideo = document.getElementById('homeVideo');
+        const backgroundImage = document.getElementById('backgroundImage');
+        const lyrics = document.getElementById('lyrics');
+        const playButton = document.getElementById('playButton');
+        const backButton = document.getElementById('backButton');
+
+        // Oculta a home
+        homePage.style.display = 'none';
+        if (homeVideo) try { homeVideo.pause(); } catch(e) {}
+        currentTab = songId;
+
+        // Carregar letras da música selecionada
+        lyricsData = lyricsDataMap[songId] || lyricsDataMap['trying-not-to-love-you'];
+
+        // Definir arquivo de áudio dependendo da música selecionada
+        try {
+            const audioMap = {
+                'trying-not-to-love-you': "./musica.mp3",
+                'those-eyes': "./newwest.mp3"
+                    , 'the-first-time': "./thefirsttime.mp3"
+            };
+            const audioFile = audioMap[songId] || audioMap['trying-not-to-love-you'];
+            const audio = document.getElementById('song');
+            if (audio) {
+                try { audio.pause(); audio.currentTime = 0; } catch(e) {}
+                audio.src = audioFile;
+                audio.load();
+
+                // Tenta autoplay assim que a aba é aberta. Muitos navegadores permitem
+                // autoplay apenas quando o áudio está mudo — então tocamos inicialmente
+                // em `muted` e, se for bem-sucedido, fazemos o fade-in e removemos o mute
+                // quando possível. Se o navegador bloquear, o usuário pode iniciar manualmente.
+                try {
+                    audio.muted = true;
+                    audio.volume = 0;
+                    audio.play().then(() => {
+                        // Ao tocar com sucesso em modo mudo, tenta desmutar e aplicar fade-in
+                        isPlaying = true;
+                        const playButton = document.getElementById('playButton');
+                        if (playButton) playButton.textContent = 'Stop';
+
+                        // Tenta remover o mute e fazer fade-in (pode ser bloqueado em alguns navegadores,
+                        // mas a tentativa melhora compatibilidade)
+                        try {
+                            audio.muted = false;
+                        } catch (e) {}
+
+                        let vol = 0;
+                        const fadeRef = setInterval(() => {
+                            if (vol < 1) {
+                                vol = Math.min(1, +(vol + 0.05).toFixed(2));
+                                audio.volume = vol;
+                            } else {
+                                clearInterval(fadeRef);
+                            }
+                        }, 200);
+                    }).catch(err => {
+                        console.warn('Autoplay bloqueado ou falhou:', err);
+                        const playButton = document.getElementById('playButton');
+                        if (playButton) playButton.textContent = 'Play';
+                    });
+                } catch (e) {
+                    console.warn('Erro ao tentar autoplay (fallback):', e);
+                }
+            }
+        } catch (e) { console.warn('Erro ao trocar arquivo de áudio:', e); }
+
+        // Definir imagem de fundo dependendo da música selecionada (com crossfade)
+        try {
+                const bgMap = {
+                'trying-not-to-love-you': "./6cf6791ec236ad0d39f39bcdd9643bda.jpg",
+                'those-eyes': "./thoseeyes.jpg",
+                    'the-first-time': "./123couple.jpg"
+            };
+            const bg = bgMap[songId] || bgMap['trying-not-to-love-you'];
+            try { setBackgroundImage(bg); } catch(e) { if (backgroundImage) backgroundImage.style.backgroundImage = `url('${bg}')`; }
+        } catch (e) { console.warn('Erro ao trocar background:', e); }
+
+        // Mostra conteúdo imediatamente
+        renderLyrics();
+        updateSongTitle();
+        const lyricsEl = document.getElementById('lyrics');
+        lyricsEl.classList.remove('neon');
+        void lyricsEl.offsetWidth;
+        lyricsEl.classList.add('neon');
+
+        // Remove fundo escondido (se existir) e garante interações
+        lyrics.classList.add('visible');
+        backgroundImage.style.opacity = '1';
+        playButton.style.opacity = '1';
+        backButton.classList.add('show');
+
+        // Reset scroll to top of lyrics (sem travar)
+        try { lyrics.scrollTo({ top: 0, behavior: 'auto' }); } catch(e) { lyrics.scrollTop = 0; }
+    }
+
+    // Dedicatória agora abre em página própria: see `dedicatoria.html`
+
+    function backToHome() {
+        const homePage = document.getElementById('homePage');
+        const backgroundImage = document.getElementById('backgroundImage');
+        const lyrics = document.getElementById('lyrics');
+        const playButton = document.getElementById('playButton');
+        const backButton = document.getElementById('backButton');
+        const audio = document.getElementById('song');
+        const homeVideo = document.getElementById('homeVideo');
+
+        // Pausa o áudio e o vídeo de preview
+        if (audio) { try { audio.pause(); audio.currentTime = 0; } catch(e) {} }
+        if (homeVideo) try { homeVideo.pause(); } catch(e) {}
+
+        // Reset background to default (with crossfade)
+        try { setBackgroundImage("./6cf6791ec236ad0d39f39bcdd9643bda.jpg"); } catch (e) { try { if (backgroundImage) backgroundImage.style.backgroundImage = "url('./6cf6791ec236ad0d39f39bcdd9643bda.jpg')"; } catch(_) {} }
+        isPlaying = false;
+
+        // Reseta visuais
+        backgroundImage.style.opacity = '0';
+        playButton.style.opacity = '0';
+        backButton.classList.remove('show');
+
+        // Reset animação neon para quando reabrir
+        lyrics.classList.remove('neon');
+        void lyrics.offsetWidth;
+        lyrics.classList.add('neon');
+
+        // Mantemos o idioma atual? No original você retornava ao inglês. Vou manter como estava:
+        currentLanguage = 'en';
+        renderLyrics();
+
+        // Garante que o texto não esteja escondido
+        lyrics.classList.remove('hidden-bg');
+        try { lyrics.scrollTo({ top: 0 }); } catch(e) { lyrics.scrollTop = 0; }
+        lyrics.classList.remove('visible');
+        // remove qualquer estilo inline de opacity que possa impedir reexibição futura
+        lyrics.style.opacity = '';
+
+        // Reset play button text
+        playButton.textContent = 'Play';
+
+        // Mostra a home
+        homePage.style.display = 'flex';
+        currentTab = null;
+
+        // resume home preview video (muted autoplay should allow play, catch errors)
+        if (homeVideo) { try { homeVideo.play(); } catch(e) {} }
+
+        // Reseta abas visuais
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    }
+
+    // ---------- Inicialização ----------
+    document.addEventListener('DOMContentLoaded', () => {
+        renderLyrics();
+
+        const lyricsContainer = document.getElementById('lyricsContainer');
+        const lyrics = document.getElementById('lyrics');
+        const audio = document.getElementById('song');
+        const playButton = document.getElementById('playButton');
+        const filePicker = document.getElementById('filePicker');
+        const backgroundImage = document.getElementById('backgroundImage');
+        const musicCategory = document.getElementById('musicCategory');
+        const dedicationCategory = document.getElementById('dedicationCategory');
+        const tabsContainer = document.getElementById('tabsContainer');
+        const tabs = document.querySelectorAll('.tab');
+        const backButton = document.getElementById('backButton');
+
+        // Define imagem de fundo (ajuste o caminho conforme necessário)
+        try { setBackgroundImage('./6cf6791ec236ad0d39f39bcdd9643bda.jpg'); } catch(e) { backgroundImage.style.backgroundImage = "url('./6cf6791ec236ad0d39f39bcdd9643bda.jpg')"; }
+
+        // Listaeners de clique para alternar idioma (um único handler — evita múltiplos binds)
+        lyricsContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleAllLanguages();
+        });
+        lyrics.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            toggleAllLanguages();
+        });
+
+        // Botões e player
+        let fadeIntervalRef = null;
+        audio.volume = 0;
+
+        function startFadeIn() {
+            let volume = audio.volume || 0;
+            if (fadeIntervalRef) clearInterval(fadeIntervalRef);
+            fadeIntervalRef = setInterval(() => {
+                if (volume < 1) {
+                    volume = Math.min(1, +(volume + 0.05).toFixed(2));
+                    audio.volume = volume;
+                } else {
+                    clearInterval(fadeIntervalRef);
+                    fadeIntervalRef = null;
+                }
+            }, 200);
+        }
+
+        function tryPlay() {
+            audio.play().then(() => {
+                startFadeIn();
+                isPlaying = true;
+                playButton.textContent = 'Stop';
+            }).catch(error => {
+                console.error("Erro ao tentar tocar a música:", error);
+                playButton.textContent = "Choose file";
+                filePicker.click();
+            });
+        }
+
+        playButton.addEventListener('click', () => {
+            if (!isPlaying) {
+                playButton.textContent = 'Loading...';
+                tryPlay();
+            } else {
+                audio.pause();
+                isPlaying = false;
+                playButton.textContent = 'Play';
+            }
+        });
+
+        audio.addEventListener('error', (e) => {
+            console.error('Audio error event:', e);
+            playButton.textContent = 'Choose file';
+            isPlaying = false;
+        });
+
+        filePicker.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            audio.src = url;
+            audio.load();
+            playButton.textContent = 'Loading...';
+            setTimeout(() => tryPlay(), 500);
+        });
+
+        audio.addEventListener('canplay', () => {
+            console.log('Áudio pronto para reproduzir');
+        });
+
+        audio.load();
+        playButton.textContent = 'Play';
+
+        // Controla a categoria de músicas (dropdown de abas)
+        musicCategory.addEventListener('click', () => {
+            tabsContainer.classList.toggle('active');
+        });
+
+        // Dedicatória: abre página separada
+        if (dedicationCategory) {
+            dedicationCategory.addEventListener('click', () => {
+                window.location.href = 'dedicatoria.html';
+            });
+        }
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // se a aba tiver data-song, é uma música
+                if (tab.dataset.song) {
+                    console.log('Tab clicada:', tab.dataset.song);
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentTab = tab.dataset.song;
+                    showSong(tab.dataset.song);
+                }
+            });
+        });
+
+        // (Dedicatória agora possui página própria)
+
+        // Back: tecla ESC ou botão back
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && currentTab) backToHome();
+        });
+        backButton.addEventListener('click', () => backToHome());
+
+        // Mostrar/ocultar fundo com base na posição do ponteiro (mais robusto que mouseenter/mouseleave)
+        // Isso garante que, mesmo se o cursor sair da janela, o comportamento continue previsível
+        function updateLyricsHoverState(clientX, clientY) {
+            const rect = lyrics.getBoundingClientRect();
+            const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+            if (inside) {
+                lyrics.classList.add('visible');
+                lyrics.classList.remove('hidden-bg');
+            } else {
+                lyrics.classList.remove('visible');
+                lyrics.classList.add('hidden-bg');
+            }
+        }
+
+        // Listener principal: verifica o ponteiro sempre que ele se move
+        document.addEventListener('mousemove', (e) => {
+            updateLyricsHoverState(e.clientX, e.clientY);
+        });
+
+        // Quando o ponteiro sair da janela (relatedTarget === null em mouseout), garante esconder
+        document.addEventListener('mouseout', (e) => {
+            if (!e.relatedTarget) {
+                lyrics.classList.remove('visible');
+                lyrics.classList.add('hidden-bg');
+            }
+        });
+
+        // Se quiser que a intro apareça **apenas** uma vez por sessão (não persistente), substitua o uso de localStorage por uma variável simples.
+        // Atualmente usamos localStorage para que a intro apareça apenas uma vez mesmo se o usuário recarregar a página.
+    });
+</script>
+
+</body>
+</html>
